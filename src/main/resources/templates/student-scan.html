@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Scan Attendance</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 16px; }
+        #reader { width: 100%; max-width: 360px; margin: 16px auto; }
+        #result { font-size: 18px; font-weight: bold; margin-top: 16px; }
+    </style>
+</head>
+<body>
+    <h2>Scan the QR on the screen</h2>
+    <div id="reader"></div>
+    <p id="result"></p>
+    <p><a th:href="@{/dashboard}">Back</a></p>
+
+    <script th:inline="javascript">
+        var csrfToken = /*[[${_csrf.token}]]*/ '';
+        var csrfHeader = /*[[${_csrf.headerName}]]*/ 'X-CSRF-TOKEN';
+        var busy = false;
+
+        function sendMark(text, lat, lng, acc) {
+            var headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+            headers[csrfHeader] = csrfToken;
+            var body = 'payload=' + encodeURIComponent(text)
+                + '&latitude=' + encodeURIComponent(lat)
+                + '&longitude=' + encodeURIComponent(lng)
+                + '&accuracy=' + encodeURIComponent(acc);
+
+            fetch('/student/mark', { method: 'POST', headers: headers, body: body })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    document.getElementById('result').textContent = d.message;
+                    setTimeout(function () { busy = false; }, 3000);
+                })
+                .catch(function () {
+                    document.getElementById('result').textContent = 'Connection problem';
+                    busy = false;
+                });
+        }
+
+        function onScan(text) {
+            if (busy) return;
+            busy = true;
+            var result = document.getElementById('result');
+            result.textContent = 'Getting your location...';
+            if (!navigator.geolocation) {
+                result.textContent = 'This browser cannot give location.';
+                busy = false;
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(function (p) {
+                result.textContent = 'Checking...';
+                sendMark(text, p.coords.latitude, p.coords.longitude, p.coords.accuracy);
+            }, function () {
+                result.textContent = 'Location is required. Tap Allow and scan again.';
+                setTimeout(function () { busy = false; }, 3000);
+            }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+        }
+
+        var scanner = new Html5QrcodeScanner('reader', { fps: 10, qrbox: 250 }, false);
+        scanner.render(onScan);
+    </script>
+    </body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Attendance QR</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 24px; }
+        #qr { display: inline-block; margin: 20px; }
+        #status { color: #555; }
+        #count { font-size: 28px; font-weight: bold; }
+        button { font-size: 16px; padding: 8px 16px; }
+    </style>
+</head>
+<body>
+    <h1 th:text="${classSession.subject}">Subject</h1>
+    <div id="qr"></div>
+    <p id="status"></p>
+    <p id="count">Present: 0</p>
+    <ul id="list" style="list-style:none; padding:0; font-size:18px;"></ul>
+
+    <form method="post" th:action="@{/teacher/session/{id}/close(id=${classSession.id})}">
+        <button type="submit">Close session</button>
+    </form>
+    <p><a th:href="@{/teacher}">Back</a></p>
+
+    <script th:inline="javascript">
+        var sessionId = /*[[${classSession.id}]]*/ 0;
+        var qrBox = document.getElementById('qr');
+        var qr = new QRCode(qrBox, { text: ' ', width: 300, height: 300 });
+        var lastPayload = '';
+
+        function poll() {
+            fetch('/teacher/session/' + sessionId + '/qr')
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    document.getElementById('status').textContent = '';
+                    document.getElementById('count').textContent = 'Present: ' + d.count;
+                    if (!d.active) {
+                        qrBox.style.display = 'none';
+                        document.getElementById('status').textContent = 'Session closed';
+                        return;
+                    }
+                    if (d.payload !== lastPayload) {
+                        lastPayload = d.payload;
+                        qr.clear();
+                        qr.makeCode(d.payload);
+                    }
+                })
+                .catch(function () {
+                    document.getElementById('status').textContent = 'Connection problem';
+                });
+        }
+
+        function loadList() {
+            fetch('/teacher/session/' + sessionId + '/list')
+                .then(function (r) { return r.json(); })
+                .then(function (rows) {
+                    var ul = document.getElementById('list');
+                    ul.innerHTML = '';
+                    rows.forEach(function (x) {
+                        var li = document.createElement('li');
+                        li.textContent = x.name + ' (' + x.roll + ')';
+                        ul.appendChild(li);
+                    });
+                });
+        }
+
+        poll();
+        setInterval(poll, 2000);
+        loadList();
+        setInterval(loadList, 3000);
+    </script>
+</body>
+</html>

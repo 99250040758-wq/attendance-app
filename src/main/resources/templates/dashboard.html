@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dashboard</title>
+</head>
+<body>
+    <h2>Welcome, <span th:text="${email}"></span></h2>
+    <p>Your role: <b th:text="${role}"></b></p>
+    <p th:if="${role == 'TEACHER'}"><a th:href="@{/teacher}">Start attendance session</a></p>
+    <p th:if="${role == 'STUDENT'}"><a th:href="@{/student/scan}">Scan attendance</a></p>
+
+    <form method="post" th:action="@{/logout}">
+        <button type="submit">Logout</button>
+    </form>
+</body>
+</html>

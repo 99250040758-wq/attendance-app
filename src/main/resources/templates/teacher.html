@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Start Attendance</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 24px; }
+        input, button { font-size: 18px; padding: 10px; margin: 8px; }
+        #msg { color: #b00; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h2>Start attendance session</h2>
+    <form id="startForm" method="post" th:action="@{/teacher/start}">
+        <input type="text" name="subject" placeholder="Subject" required>
+        <input type="hidden" name="latitude" id="lat">
+        <input type="hidden" name="longitude" id="lng">
+        <input type="hidden" name="accuracy" id="acc">
+        <br>
+        <button type="submit" id="btn">Generate QR</button>
+    </form>
+    <p id="msg"></p>
+    <p><a th:href="@{/dashboard}">Back</a></p>
+
+    <script>
+        var form = document.getElementById('startForm');
+        var ready = false;
+        form.addEventListener('submit', function (e) {
+            if (ready) return;
+            e.preventDefault();
+            var msg = document.getElementById('msg');
+            msg.textContent = 'Getting your location...';
+            if (!navigator.geolocation) {
+                msg.textContent = 'This browser cannot give location.';
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(function (p) {
+                document.getElementById('lat').value = p.coords.latitude;
+                document.getElementById('lng').value = p.coords.longitude;
+                document.getElementById('acc').value = p.coords.accuracy;
+                ready = true;
+                form.submit();
+            }, function () {
+                msg.textContent = 'Location is required. Tap Allow when the browser asks, then try again.';
+            }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+        });
+    </script>
+</body>
+</html>
