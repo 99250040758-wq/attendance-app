@@ -20,8 +20,8 @@ import java.util.Map;
 public class StudentController {
 
     private static final double BASE_METERS = 25.0;
-    private static final double MAX_ACCURACY_BONUS = 50.0;
-    private static final double REJECT_ACCURACY = 100.0;
+    private static final double MAX_ACCURACY_BONUS = 1000.0;
+    private static final double REJECT_ACCURACY = 3000.0;
 
     private final UserRepository userRepository;
     private final ClassSessionRepository classSessionRepository;
