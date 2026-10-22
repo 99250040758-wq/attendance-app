@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21-jdk
+FROM eclipse-temurin:21 TO 25-jdk
 WORKDIR /app
 COPY . .
 RUN sed -i 's/\r$//' mvnw && chmod +x mvnw && ./mvnw -DskipTests package
