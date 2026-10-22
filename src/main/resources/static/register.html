@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Register Student</title>
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
 </head>
 <body>
   <h2>Register Student</h2>
@@ -11,11 +12,43 @@
   <input id="roll" placeholder="Roll number"><br><br>
   <input id="email" placeholder="Email"><br><br>
   <input id="pass" type="password" placeholder="Password"><br><br>
+
+  <video id="video" width="260" autoplay muted playsinline></video><br>
+  <button onclick="capture()">Capture my face</button>
+  <p id="faceMsg">Loading face models...</p>
+
   <button onclick="save()">Register</button>
   <p id="msg"></p>
 
   <script>
+    const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model';
+    let faceData = null;
+    const faceMsg = t => document.getElementById('faceMsg').innerText = t;
+
+    async function init() {
+      try {
+        await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+        await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+        await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+        const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+        document.getElementById('video').srcObject = s;
+        faceMsg('Ready. Look at the camera and tap Capture my face.');
+      } catch (e) {
+        faceMsg('Camera or model error: ' + e.message);
+      }
+    }
+
+    async function capture() {
+      const r = await faceapi
+        .detectSingleFace(document.getElementById('video'), new faceapi.TinyFaceDetectorOptions())
+        .withFaceLandmarks().withFaceDescriptor();
+      if (!r) { faceMsg('No face found. Face the camera in good light and try again.'); return; }
+      faceData = JSON.stringify(Array.from(r.descriptor));
+      faceMsg('Face captured. Now tap Register.');
+    }
+
     function save() {
+      if (!faceData) { document.getElementById('msg').innerText = 'Capture your face first'; return; }
       fetch('/api/users/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -23,12 +56,15 @@
           name: document.getElementById('name').value,
           rollNumber: document.getElementById('roll').value,
           email: document.getElementById('email').value,
-          password: document.getElementById('pass').value
+          password: document.getElementById('pass').value,
+          faceData: faceData
         })
       })
       .then(r => r.ok ? 'Saved' : 'Error ' + r.status)
       .then(t => document.getElementById('msg').innerText = t);
     }
+
+    init();
   </script>
 </body>
 </html>
