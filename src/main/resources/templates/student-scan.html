@@ -5,22 +5,83 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Scan Attendance</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; padding: 16px; }
         #reader { width: 100%; max-width: 360px; margin: 16px auto; }
-        #result { font-size: 18px; font-weight: bold; margin-top: 16px; }
+        #result, #faceMsg { font-size: 18px; font-weight: bold; margin-top: 16px; }
+        video { width: 100%; max-width: 320px; }
     </style>
 </head>
 <body>
-    <h2>Scan the QR on the screen</h2>
-    <div id="reader"></div>
-    <p id="result"></p>
+    <div id="faceArea">
+        <h2>Step 1: Verify your face</h2>
+        <video id="video" autoplay muted playsinline></video><br>
+        <button id="verifyBtn" onclick="verifyFace()" disabled>Verify my face</button>
+        <p id="faceMsg">Loading...</p>
+    </div>
+
+    <div id="scanArea" style="display:none">
+        <h2>Step 2: Scan the QR on the screen</h2>
+        <div id="reader"></div>
+        <p id="result"></p>
+    </div>
+
     <p><a th:href="@{/dashboard}">Back</a></p>
 
     <script th:inline="javascript">
         var csrfToken = /*[[${_csrf.token}]]*/ '';
         var csrfHeader = /*[[${_csrf.headerName}]]*/ 'X-CSRF-TOKEN';
         var busy = false;
+        var MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model';
+        var savedDescriptor = null;
+        var camStream = null;
+
+        function setFace(t) { document.getElementById('faceMsg').textContent = t; }
+
+        function startFace() {
+            Promise.all([
+                faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+            ])
+            .then(function () { return fetch('/student/face-data').then(function (r) { return r.json(); }); })
+            .then(function (d) {
+                if (!d.hasFace) {
+                    setFace('No face saved for your account. Register again with your face.');
+                    return Promise.reject('noface');
+                }
+                savedDescriptor = new Float32Array(JSON.parse(d.faceData));
+                return navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+            })
+            .then(function (stream) {
+                camStream = stream;
+                document.getElementById('video').srcObject = stream;
+                document.getElementById('verifyBtn').disabled = false;
+                setFace('Ready. Look at the camera and tap Verify my face.');
+            })
+            .catch(function (e) {
+                if (e !== 'noface') setFace('Camera or model error: ' + (e.message || e));
+            });
+        }
+
+        function verifyFace() {
+            setFace('Checking...');
+            faceapi.detectSingleFace(document.getElementById('video'), new faceapi.TinyFaceDetectorOptions())
+                .withFaceLandmarks().withFaceDescriptor()
+                .then(function (r) {
+                    if (!r) { setFace('No face found. Face the camera in good light.'); return; }
+                    var dist = faceapi.euclideanDistance(savedDescriptor, r.descriptor);
+                    if (dist < 0.5) {
+                        if (camStream) camStream.getTracks().forEach(function (t) { t.stop(); });
+                        document.getElementById('faceArea').style.display = 'none';
+                        document.getElementById('scanArea').style.display = 'block';
+                        startScanner();
+                    } else {
+                        setFace('Face does not match (score ' + dist.toFixed(2) + '). Try again.');
+                    }
+                });
+        }
 
         function sendMark(text, lat, lng, acc) {
             var headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
@@ -61,8 +122,12 @@
             }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
         }
 
-        var scanner = new Html5QrcodeScanner('reader', { fps: 10, qrbox: 250 }, false);
-        scanner.render(onScan);
+        function startScanner() {
+            var scanner = new Html5QrcodeScanner('reader', { fps: 10, qrbox: 250 }, false);
+            scanner.render(onScan);
+        }
+
+        startFace();
     </script>
-    </body>
+</body>
 </html>
